@@ -8,6 +8,7 @@ import {
   computeUpsellTotalCents,
   formatPrice,
   unitLabel,
+  trackUpsell,
 } from "@/lib/api";
 
 interface Props {
@@ -111,6 +112,7 @@ export function UpsellCard({ item, stay, token, botName, index = 0 }: Props) {
               href={item.stripePaymentLink!}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => trackUpsell(token, item.id, "clicked")}
               className="flex-shrink-0 inline-flex items-center gap-2 bg-stone-900 hover:bg-brand-500 text-white text-sm font-medium px-5 py-3 rounded-2xl transition-colors duration-300"
             >
               Réserver
@@ -131,6 +133,7 @@ export function UpsellCard({ item, stay, token, botName, index = 0 }: Props) {
           ) : (
             <Link
               href={chatHref}
+              onClick={() => trackUpsell(token, item.id, "requested")}
               className="flex-shrink-0 inline-flex items-center gap-2 bg-brand-100 hover:bg-brand-500 hover:text-white text-stone-700 text-sm font-medium px-5 py-3 rounded-2xl transition-colors duration-300"
             >
               Demander
