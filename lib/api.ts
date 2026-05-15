@@ -139,6 +139,37 @@ export async function getUpsells(token: string): Promise<UpsellsPayload> {
   return fetchGuestApp<UpsellsPayload>(token, "/upsells");
 }
 
+/**
+ * Tracking funnel — best-effort, fire-and-forget. NE DOIT JAMAIS bloquer
+ * ni retarder le parcours du voyageur : on n'attend pas la réponse côté
+ * appelant, et toute erreur est avalée silencieusement (analytics ≠
+ * fonctionnel). `keepalive` permet à la requête d'aboutir même si la
+ * page se ferme/navigue juste après (clic "Réserver" → onglet Stripe).
+ */
+export function trackUpsell(
+  token: string,
+  itemId: string,
+  action: "clicked" | "requested",
+  quantity?: number,
+): void {
+  try {
+    const url = `${API_URL}/guest-app/${encodeURIComponent(
+      token,
+    )}/upsells/${encodeURIComponent(itemId)}/track`;
+    void fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "omit",
+      keepalive: true,
+      body: JSON.stringify({ action, quantity }),
+    }).catch(() => {
+      /* analytics non bloquant — on ignore tout échec */
+    });
+  } catch {
+    /* idem — jamais d'exception propagée au parcours d'achat */
+  }
+}
+
 export interface SendMessageResponse {
   conversationId: string;
   reply: string;
@@ -155,15 +186,37 @@ export async function sendGuestMessage(
   message: string,
 ): Promise<SendMessageResponse> {
   const url = `${API_URL}/guest-app/${encodeURIComponent(token)}/messages`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    credentials: "omit",
-    body: JSON.stringify({ message }),
-  });
+
+  // Timeout client 30s : le backend a un TimeoutInterceptor 60s, mais 60s
+  // de spinner sans feedback sur mobile = voyageur qui ferme la PWA.
+  // À 30s on coupe et on affiche une erreur "réessayez" exploitable
+  // (le texte est restauré dans l'input côté chat-view).
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 30_000);
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      credentials: "omit",
+      body: JSON.stringify({ message }),
+      signal: ctrl.signal,
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new ApiError(
+        408,
+        "La réponse prend trop de temps. Réessayez dans un instant.",
+      );
+    }
+    throw new ApiError(0, "Connexion interrompue. Réessayez.");
+  }
+  clearTimeout(timer);
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
