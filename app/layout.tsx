@@ -16,12 +16,41 @@ const playfair = Playfair_Display({
   weight: ["400", "500", "600"],
 });
 
+const DESCRIPTION =
+  "Tout ce qu'il faut savoir pour votre séjour. Wifi, accès, recommandations locales — votre concierge personnel vous accompagne 24h/24.";
+
 export const metadata: Metadata = {
   title: `Votre séjour | ${brand.productName}`,
-  description: "Tout ce qu'il faut savoir pour votre séjour. Wifi, accès, recommandations locales — votre concierge personnel vous accompagne 24h/24.",
+  description: DESCRIPTION,
+  applicationName: "Mon séjour",
   // Empêche les pages voyageur d'être indexées Google
   // (ce sont des URLs privées par réservation, pas du contenu public)
   robots: { index: false, follow: false },
+  // iOS : ouverture plein écran « app native » depuis l'écran d'accueil.
+  appleWebApp: {
+    capable: true,
+    title: "Mon séjour",
+    statusBarStyle: "default",
+  },
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+  },
+  // OpenGraph : quand le voyageur reçoit le lien par WhatsApp/SMS/iMessage,
+  // une carte d'aperçu branded s'affiche → première impression premium
+  // AVANT même le clic (opengraph-image.tsx fournit le visuel).
+  openGraph: {
+    title: "Votre séjour vous attend",
+    description: DESCRIPTION,
+    type: "website",
+    locale: "fr_FR",
+    siteName: brand.productName,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Votre séjour vous attend",
+    description: DESCRIPTION,
+  },
 };
 
 export const viewport: Viewport = {
