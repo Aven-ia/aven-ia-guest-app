@@ -46,6 +46,11 @@ export function ChatView({ token, botName, initialConversation }: Props) {
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Compteur monotone pour des clés React garanties uniques (Date.now()
+  // peut collisionner si deux messages dans la même milliseconde, ou
+  // entre un message local et la réponse bot quasi-instantanée).
+  const seqRef = useRef(0);
+  const nextId = (prefix: string) => `${prefix}-${++seqRef.current}`;
 
   // Pré-remplit l'input depuis ?q= (lien "Demander" d'un upsell sans
   // Payment Link). Lu via window.location pour éviter la contrainte
@@ -74,7 +79,7 @@ export function ChatView({ token, botName, initialConversation }: Props) {
       if (!text || sending) return;
 
       const optimistic: ChatMessage = {
-        id: `local-${Date.now()}`,
+        id: nextId("local"),
         role: "guest",
         content: text,
         createdAt: new Date().toISOString(),
@@ -92,7 +97,7 @@ export function ChatView({ token, botName, initialConversation }: Props) {
             m.id === optimistic.id ? { ...m, pending: false } : m,
           ),
           {
-            id: `bot-${Date.now()}`,
+            id: nextId("bot"),
             role: res.status === "bot" ? "bot" : "human",
             content: res.reply,
             createdAt: new Date().toISOString(),
@@ -107,7 +112,7 @@ export function ChatView({ token, botName, initialConversation }: Props) {
           // Retire le message optimiste en échec
           ...prev.filter((m) => m.id !== optimistic.id),
           {
-            id: `err-${Date.now()}`,
+            id: nextId("err"),
             role: "bot",
             content: msg,
             createdAt: new Date().toISOString(),
@@ -123,8 +128,11 @@ export function ChatView({ token, botName, initialConversation }: Props) {
     [input, sending, token],
   );
 
+  // NB: h-dvh (dynamic viewport) et NON h-screen — sur iOS Safari, 100vh
+  // inclut la zone derrière la barre d'adresse, ce qui masquerait la barre
+  // d'input du chat. 100dvh suit la hauteur réellement visible.
   return (
-    <div className="flex flex-col h-screen bg-brand-50">
+    <div className="flex flex-col h-dvh bg-brand-50">
       {/* Header chat */}
       <header className="sticky top-0 z-40 bg-white border-b border-stone-200 flex-shrink-0">
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center gap-3">

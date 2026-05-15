@@ -11,7 +11,7 @@ import { brand } from "@/config/brand";
  */
 export default function RootPage() {
   return (
-    <main className="min-h-screen flex items-center justify-center px-6">
+    <main className="min-h-dvh flex items-center justify-center px-6">
       <div className="max-w-md text-center">
         <div className="text-5xl mb-6">🔑</div>
         <h1 className="text-3xl font-serif font-medium text-stone-900 mb-4">
