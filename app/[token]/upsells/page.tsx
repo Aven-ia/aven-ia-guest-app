@@ -37,6 +37,16 @@ const CATEGORY_META: Record<
   other: { label: "Autres", emoji: "➕", order: 7 },
 };
 
+/**
+ * Métadonnée d'une catégorie, avec garde-fou : si le backend introduit
+ * une nouvelle catégorie pas encore connue du front (déploiements
+ * désynchronisés), on retombe sur "Autres" plutôt que de crasher la
+ * page (CATEGORY_META[inconnu] = undefined → .order throw).
+ */
+function catMeta(category: UpsellCategory) {
+  return CATEGORY_META[category] ?? CATEGORY_META.other;
+}
+
 function groupByCategory(items: UpsellItem[]) {
   const groups = new Map<UpsellCategory, UpsellItem[]>();
   for (const item of items) {
@@ -45,7 +55,7 @@ function groupByCategory(items: UpsellItem[]) {
     groups.set(item.category, arr);
   }
   return Array.from(groups.entries()).sort(
-    (a, b) => CATEGORY_META[a[0]].order - CATEGORY_META[b[0]].order,
+    (a, b) => catMeta(a[0]).order - catMeta(b[0]).order,
   );
 }
 
@@ -135,7 +145,7 @@ export default async function UpsellsPage({ params }: PageProps) {
         ) : (
           <div className="max-w-2xl mx-auto px-5 mt-10 space-y-12">
             {grouped.map(([category, items]) => {
-              const meta = CATEGORY_META[category];
+              const meta = catMeta(category);
               return (
                 <section key={category}>
                   <div className="flex items-center gap-2.5 mb-5">
