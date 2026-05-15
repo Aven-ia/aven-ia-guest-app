@@ -1,0 +1,17 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+
+.env*.local
+.env.local
+.env
+
+.vercel/
+
+.DS_Store
+*.log
+.eslintcache
+tsconfig.tsbuildinfo
+next-env.d.ts
