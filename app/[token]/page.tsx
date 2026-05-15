@@ -1,11 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getWelcome, ApiError } from "@/lib/api";
+import { getWelcome, getUpsells, ApiError, type UpsellsPayload } from "@/lib/api";
 import { GuestHeader } from "@/components/guest-header";
 import { InfoCategoryCard } from "@/components/info-category-card";
 import { WelcomeHero } from "@/components/welcome-hero";
 import { ChatTeaser } from "@/components/chat-teaser";
+import { UpsellsTeaser } from "@/components/upsells-teaser";
 
 /**
  * Page principale du livret d'accueil voyageur.
@@ -35,6 +36,16 @@ export default async function GuestLivretPage({ params }: PageProps) {
     }
     // Autre erreur API (500, network, etc.) — on rend une page d'erreur
     throw err;
+  }
+
+  // Catalogue d'upsells — non bloquant : si l'endpoint échoue (ancien
+  // backend pas encore déployé, catalogue vide…), on dégrade gracieusement
+  // sans casser le livret. Le teaser ne s'affiche que s'il y a des items.
+  let upsells: UpsellsPayload | null = null;
+  try {
+    upsells = await getUpsells(token);
+  } catch {
+    upsells = null;
   }
 
   return (
@@ -104,6 +115,16 @@ export default async function GuestLivretPage({ params }: PageProps) {
               </p>
             </div>
           </section>
+        )}
+
+        {/* Extras à la vente — entre les infos et le chat (moment idéal :
+            le voyageur a lu son livret, il se projette dans le séjour) */}
+        {upsells && upsells.items.length > 0 && (
+          <UpsellsTeaser
+            token={token}
+            items={upsells.items}
+            stay={upsells.stayContext}
+          />
         )}
 
         {/* CTA chat IA — toujours présent en bas */}

@@ -55,6 +55,41 @@ export interface ConversationPayload {
   }>;
 }
 
+export type UpsellCategory =
+  | "check_in_out"
+  | "cleaning"
+  | "mobility"
+  | "food_drink"
+  | "experience"
+  | "comfort"
+  | "other";
+
+export type UpsellUnit = "per_stay" | "per_day" | "per_person";
+
+export interface UpsellItem {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  imageUrl: string | null;
+  category: UpsellCategory;
+  priceCents: number;
+  currency: "EUR" | "USD" | "GBP" | "CHF";
+  unit: UpsellUnit;
+  maxQuantity: number;
+  /** URL du Stripe Payment Link. Si null, item visible mais non achetable. */
+  stripePaymentLink: string | null;
+}
+
+export interface UpsellsPayload {
+  items: UpsellItem[];
+  stayContext: {
+    nights: number | null;
+    guests: number | null;
+  };
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 class ApiError extends Error {
@@ -100,8 +135,58 @@ export async function getConversation(token: string): Promise<ConversationPayloa
   return fetchGuestApp<ConversationPayload>(token, "/conversation");
 }
 
+export async function getUpsells(token: string): Promise<UpsellsPayload> {
+  return fetchGuestApp<UpsellsPayload>(token, "/upsells");
+}
+
 export async function checkTokenHealth(token: string): Promise<{ ok: boolean; tokenId: string; expiresAt: string }> {
   return fetchGuestApp(token, "/health");
+}
+
+// ── Utilitaires de prix ─────────────────────────────────────────────────────
+
+/**
+ * Calcule le prix total d'un item selon son unité et le contexte de séjour.
+ *
+ *   per_stay   → prix fixe
+ *   per_day    → prix × nb de nuits (fallback 1 si inconnu)
+ *   per_person → prix × nb de voyageurs (fallback 1 si inconnu)
+ *
+ * `quantity` multiplie en plus (ex: 2 vélos × 3 jours).
+ */
+export function computeUpsellTotalCents(
+  item: Pick<UpsellItem, "priceCents" | "unit">,
+  stay: { nights: number | null; guests: number | null },
+  quantity = 1,
+): number {
+  let multiplier = 1;
+  if (item.unit === "per_day") multiplier = Math.max(1, stay.nights ?? 1);
+  else if (item.unit === "per_person") multiplier = Math.max(1, stay.guests ?? 1);
+  return item.priceCents * multiplier * Math.max(1, quantity);
+}
+
+/** Formate des centimes en string monétaire localisé (ex: 3000 → "30 €"). */
+export function formatPrice(cents: number, currency = "EUR"): string {
+  const amount = cents / 100;
+  const hasDecimals = cents % 100 !== 0;
+  return new Intl.NumberFormat("fr-FR", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+/** Libellé court de l'unité pour l'UI (ex: "/ nuit", "/ personne"). */
+export function unitLabel(unit: UpsellUnit): string {
+  switch (unit) {
+    case "per_day":
+      return "/ nuit";
+    case "per_person":
+      return "/ personne";
+    default:
+      return "";
+  }
 }
 
 export { ApiError };
