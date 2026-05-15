@@ -139,6 +139,47 @@ export async function getUpsells(token: string): Promise<UpsellsPayload> {
   return fetchGuestApp<UpsellsPayload>(token, "/upsells");
 }
 
+export interface SendMessageResponse {
+  conversationId: string;
+  reply: string;
+  status: "bot" | "escalated" | "gdpr" | "csat";
+}
+
+/**
+ * POST /guest-app/:token/messages — envoie un message à Bob et récupère
+ * sa réponse. Pas de cache (POST), timeout généreux (l'IA peut prendre
+ * quelques secondes pour une réponse RAG).
+ */
+export async function sendGuestMessage(
+  token: string,
+  message: string,
+): Promise<SendMessageResponse> {
+  const url = `${API_URL}/guest-app/${encodeURIComponent(token)}/messages`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    credentials: "omit",
+    body: JSON.stringify({ message }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    let msg = `Erreur ${res.status}`;
+    try {
+      const json = JSON.parse(text);
+      msg = json.message ?? msg;
+    } catch {
+      /* garde le message générique */
+    }
+    throw new ApiError(res.status, msg);
+  }
+
+  return res.json() as Promise<SendMessageResponse>;
+}
+
 export async function checkTokenHealth(token: string): Promise<{ ok: boolean; tokenId: string; expiresAt: string }> {
   return fetchGuestApp(token, "/health");
 }
